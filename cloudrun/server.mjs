@@ -394,6 +394,8 @@ async function route(req, url, path, player, body) {
     // every Momo on the map: where it was found, what it is, how often it's been seen
     const rows = await sql`select t.id,t.lat,t.lng,t.species,t.visits,t.last_seen,t.place,t.momo->>'name' name,t.momo->>'rarity' rarity,t.momo->>'line' line,t.momo->>'svg' svg,t.momo->>'place_note' place_note,t.health->>'health_label' health,
       (select text from tm_chronicle c where c.tree=t.id and c.kind='moment' order by at desc limit 1) moment,
+      (select json_build_object('text',c.text,'author',c.author,'at',c.at) from tm_chronicle c where c.tree=t.id and c.kind='memory' order by at desc limit 1) memory,
+      (select count(*)::int from tm_chronicle c where c.tree=t.id) chron_n,
       (select json_build_object('id',q.id,'ask',q.ask) from tm_quests q where q.tree=t.id and q.status='open' limit 1) quest,
       (select json_build_object('id',g.id,'title',g.title,'from',g.from_name) from tm_gifts g where g.tree=t.id and g.status='open' limit 1) gift,
       (select json_build_object('id',f.id,'name',f.name,'size',(select count(*) from tm_trees x where x.family=f.id)) from tm_families f where f.id=t.family) family
