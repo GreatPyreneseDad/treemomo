@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TreeMomo</title>
+<meta name="theme-color" content="#1f3b2d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--leaf:#2f6b45;--deep:#1f3b2d;--bark:#6b4a2e;--cream:#f5f0e3;--ink:#1d1a17;--sun:#f2b632;--mute:#6f6a5e}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Nunito,system-ui,sans-serif;background:var(--cream);color:var(--ink);min-height:100vh}
+h1,h2,h3,.f{font-family:Fredoka,system-ui,sans-serif}
+.wrap{max-width:520px;margin:0 auto;padding:16px 16px 90px}
+header{display:flex;justify-content:space-between;align-items:center;padding:4px 0 14px}
+header h1{font-size:30px;color:var(--deep)}header h1 span{color:var(--leaf)}
+.card{background:#fff;border:2px solid var(--ink);border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 4px 0 var(--ink)}
+.btn{display:block;width:100%;border:2px solid var(--ink);border-radius:16px;padding:15px;font:700 18px Fredoka;background:var(--leaf);color:#fff;box-shadow:0 4px 0 var(--ink);margin-top:10px;cursor:pointer;text-align:center}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn.alt{background:#fff;color:var(--ink)}.btn.sun{background:var(--sun);color:var(--ink)}
+.btn:disabled{opacity:.5}
+.hero{background:linear-gradient(160deg,#2f6b45,#1f3b2d);color:#fff;text-align:center;padding:26px 18px}
+.hero .big{font-size:64px}
+.muted{color:var(--mute);font-size:14px}
+#stage{position:relative;width:100%;border-radius:18px;overflow:hidden;border:2px solid var(--ink);background:#000;box-shadow:0 4px 0 var(--ink)}
+#stage video,#stage canvas{display:block;width:100%;height:auto}
+#momo{position:absolute;transform:translate(-50%,-50%);transition:left .9s cubic-bezier(.3,1.4,.5,1),top .9s cubic-bezier(.3,1.4,.5,1),width .9s,height .9s;pointer-events:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.45))}
+#momo svg{width:100%;height:100%;animation:bob 2.2s ease-in-out infinite}
+#momo.pop{animation:pop .7s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,-10%) scale(.2)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes bob{50%{transform:translateY(-6%) rotate(-3deg)}}
+.tag{position:absolute;left:62%;top:78%;background:#fffbe8;border:2px solid var(--ink);border-radius:6px;padding:3px 6px;font:700 10px Nunito;transform:rotate(8deg);white-space:nowrap;box-shadow:0 2px 0 var(--ink)}
+.fitnote{position:absolute;left:10px;right:10px;bottom:10px;background:rgba(31,59,45,.92);color:#fff;border-radius:12px;padding:8px 12px;font-weight:700;font-size:14px;display:none}
+.rar{display:inline-block;font:700 12px Fredoka;border:2px solid var(--ink);border-radius:999px;padding:2px 10px;text-transform:uppercase}
+.rar.common{background:#e7e2d4}.rar.uncommon{background:#9fd39b}.rar.rare{background:#8cc3ff}.rar.legendary{background:var(--sun)}
+.bar{height:14px;border:2px solid var(--ink);border-radius:999px;background:#fff;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%}
+.obs li{margin:4px 0 4px 18px;font-size:15px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.load{text-align:center;padding:30px 10px}.load .leaf{font-size:54px;display:inline-block;animation:spin 2.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.prog{height:10px;background:#e7e2d4;border-radius:999px;overflow:hidden;border:2px solid var(--ink);margin-top:10px}.prog i{display:block;height:100%;background:var(--leaf);width:0;transition:width .3s}
+.journal{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.jent{background:#fff;border:2px solid var(--ink);border-radius:16px;padding:8px;text-align:center}
+.jent svg{width:100%;height:110px}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:2px solid var(--ink);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;border:0;background:none;font:700 15px Fredoka;padding:14px 0;color:var(--mute)}.tabs button.on{color:var(--leaf)}
+.toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:20;display:none;max-width:90vw}
+#camv{position:fixed;inset:0;background:#000;z-index:30;display:none;flex-direction:column}
+#camv video{flex:1;width:100%;height:100%;object-fit:cover}
+#camv .bar2{position:absolute;left:0;right:0;bottom:0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;background:linear-gradient(transparent,rgba(0,0,0,.6))}
+#camv .rec{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:#e0413a;transition:all .2s}
+#camv .rec.on{border-radius:22px;transform:scale(.8)}
+#camv .hint{position:absolute;top:calc(18px + env(safe-area-inset-top));left:0;right:0;text-align:center;color:#fff;font:700 18px Fredoka;text-shadow:0 2px 6px #000;padding:0 20px}
+#camv .ring{position:absolute;left:50%;top:50%;width:70vmin;height:70vmin;transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.35);border-radius:50%;pointer-events:none}
+.leafp{position:absolute;font-size:26px;pointer-events:none;animation:fall 2.4s ease-in forwards}
+@keyframes fall{0%{opacity:0;transform:translateY(-10px) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translateY(160px) rotate(220deg)}}
+.glint{position:absolute;width:14px;height:8px;pointer-events:none;animation:blink 1.4s ease-in-out forwards}
+.glint:before,.glint:after{content:"";position:absolute;top:0;width:6px;height:8px;border-radius:50%;background:#fff6c2;box-shadow:0 0 8px #ffe36b}
+.glint:before{left:0}.glint:after{right:0}
+@keyframes blink{0%,100%{opacity:0}30%,60%{opacity:1}45%{transform:scaleY(.1)}}
+#stage img{display:block;width:100%;height:auto}
+.chron{position:relative;margin-top:8px;padding-left:18px;border-left:3px solid #d8cfb8}
+.chron .e{position:relative;margin:0 0 14px}
+.chron .e:before{content:"";position:absolute;left:-26px;top:4px;width:13px;height:13px;border-radius:50%;background:var(--leaf);border:2px solid var(--ink)}
+.chron .e.memory:before{background:var(--sun)}.chron .e.steward:before{background:#8cc3ff}
+.chron .when{font-size:12px;color:var(--mute);font-weight:700}
+textarea{width:100%;border:2px solid var(--ink);border-radius:12px;padding:10px;font:600 16px Nunito;min-height:70px}
+input.t{width:100%;border:2px solid var(--ink);border-radius:12px;padding:10px;font:600 16px Nunito;margin-top:8px}
+#map{height:calc(100vh - 150px);height:calc(100dvh - 150px);border-radius:18px;border:2.5px solid var(--ink);overflow:hidden;margin-top:8px}
+.mm{display:flex;flex-direction:column;align-items:center;cursor:pointer;transform-origin:50% 100%;animation:dance 1.6s ease-in-out infinite}
+.mm svg{width:54px;height:54px;filter:drop-shadow(0 3px 2px rgba(0,0,0,.35))}
+.mm b{font:700 11px Fredoka;background:var(--cream);border:1.5px solid var(--ink);border-radius:8px;padding:0 5px;white-space:nowrap;margin-top:-4px}
+#map.far .mm b{display:none}#map.far .mm svg{width:40px;height:40px}
+.mm.legendary svg,.mm.rare svg{filter:drop-shadow(0 0 6px var(--sun))}
+@keyframes dance{0%,100%{transform:translateY(0) rotate(-7deg)}25%{transform:translateY(-9px) rotate(0) scale(1.05,.95)}50%{transform:translateY(0) rotate(7deg)}75%{transform:translateY(-5px) rotate(0)}}
+.mm.me{animation:none}.mm.me i{width:16px;height:16px;border-radius:50%;background:#2a7de1;border:3px solid #fff;box-shadow:0 0 0 2px #2a7de1}
+.iw{font-family:Nunito;max-width:240px;color:var(--ink)}.iw h4{font:700 16px Fredoka}.iw p{font-size:12px;margin-top:4px}
+.quest{background:#fff4d6}.quest .btn{margin-top:10px}
+.dots{display:flex;gap:6px;font-size:26px;margin-top:8px;flex-wrap:wrap}.dots.small{font-size:20px;gap:4px}.dots span{filter:grayscale(1);opacity:.35}.dots span.on{filter:none;opacity:1}
+.badge-card{text-align:center;background:linear-gradient(160deg,#2f6b45,#1f3b2d);color:#fff}.badge-card h2{color:var(--sun);font-size:28px}
+.mm .ask{text-decoration:none;font-size:18px;margin-bottom:-8px;animation:bob 1s ease-in-out infinite}@keyframes bob{50%{transform:translateY(-4px)}}
+.save{background:#eef4ff}.gbtn{min-height:44px;display:flex;justify-content:center}
+.acct{display:flex;align-items:center;gap:12px}.acct img{width:44px;height:44px;border-radius:50%;border:2px solid var(--ink)}.acct div{flex:1;min-width:0}.acct .muted{overflow:hidden;text-overflow:ellipsis}
+#who{display:none}#who img{width:26px;height:26px;border-radius:50%;border:2px solid var(--ink)}
+.gift{background:#fff1f4}.poem{font:600 18px/1.5 Fredoka;margin-top:10px;padding:12px 14px;background:#fff;border:2px solid var(--ink);border-radius:14px;white-space:normal}
+.code{font:700 26px ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;padding:12px;margin:8px 0;background:#fff;border:2.5px dashed var(--ink);border-radius:12px;word-break:break-all}.code.sm{font-size:16px;padding:6px;margin:4px 0}
+.gline{padding:8px 0;border-top:1px solid #e6dfcc}.gline:first-of-type{border-top:0}
+#camv .poemov{position:absolute;left:12px;right:12px;top:calc(64px + env(safe-area-inset-top));max-height:46vh;overflow:auto;background:rgba(0,0,0,.55);color:#fff;font:600 19px/1.5 Fredoka;padding:12px 14px;border-radius:14px}
+.demo{font:800 10px Nunito;background:#ffe1d6;border:1.5px solid var(--ink);border-radius:4px;padding:0 4px;margin-left:4px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<nav class="tabs"><button data-t="find" class="on">🌳 Find</button><button data-t="map">🗺️ Map</button><button data-t="journal">📔 Journal</button></nav>
+<div class="toast" id="toast"></div><div id="who"></div>
+<div id="camv"><video id="live" playsinline muted autoplay></video><div class="ring"></div><div class="hint" id="chint">Point at a tree. Tap record and move slowly: trunk, branches, leaves.</div><div class="bar2"><button class="btn alt" id="cclose" style="width:auto;margin:0;padding:10px 16px">✕</button><button class="rec" id="crec" aria-label="Record"></button><div id="ctime" style="color:#fff;font:700 22px Fredoka;width:64px;text-align:right">10s</div></div></div>
+<input type="file" id="cam" accept="video/*" capture="environment" style="display:none"><input type="file" id="cam2" accept="video/*" capture="environment" style="display:none"><input type="file" id="cam3" accept="video/*" capture="environment" style="display:none">
+<script>
+const API = "https://treemomo-api-494547807299.us-west1.run.app";
+const GOOGLE_CLIENT_ID = "494547807299-apqm0tgrjsnceufaihuv0u9mrd5bijnu.apps.googleusercontent.com";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let player; try { player = localStorage.getItem("tm_player"); if (!player) { player = crypto.randomUUID().replace(/-/g,"") + crypto.randomUUID().replace(/-/g,""); localStorage.setItem("tm_player", player); } } catch(e) { player = crypto.randomUUID().replace(/-/g,"") + "x".repeat(32); }
+let loc = null, tab = "find", R = null, videoURL = null, ME = null;
+const newPlayer = () => crypto.randomUUID().replace(/-/g,"") + crypto.randomUUID().replace(/-/g,"");
+function setPlayer(p){ player = p; try { localStorage.setItem("tm_player", p); } catch(e) {} }
+// Sign in with Google: optional, offered once there's something worth keeping. Progress made before signing in is folded into the account.
+function gisReady(){ return new Promise(res => { const t = setInterval(() => { if (window.google?.accounts?.id) { clearInterval(t); res(); } }, 150); setTimeout(() => { clearInterval(t); res(); }, 6000); }); }
+let gisInit = false;
+async function signInButton(el, text = "continue_with"){
+  if (!el) return; await gisReady(); if (!window.google?.accounts?.id) return;
+  if (!gisInit) { google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogle, ux_mode: "popup", itp_support: true }); gisInit = true; }
+  google.accounts.id.renderButton(el, { theme: "outline", size: "large", shape: "pill", text, logo_alignment: "left" });
+}
+async function onGoogle(resp, retried){
+  let r = await api("/auth/google", { credential: resp.credential });
+  if (r.signout && !retried) { setPlayer(newPlayer()); return onGoogle(resp, true); }
+  if (r.error) return toast(r.error);
+  setPlayer(r.player); ME = r.user;
+  toast(r.merged ? `Welcome back, ${(ME?.name || "").split(" ")[0]}. This phone's Momos are in your account now.` : `Saved. Your Momos follow you to any phone now.`, 4000);
+  refreshMe(); document.querySelectorAll("#saveme").forEach(x => x.remove()); if (tab === "journal") journal();
+}
+function signOut(){ try { google.accounts.id.disableAutoSelect(); } catch(e) {} setPlayer(newPlayer()); ME = null; refreshMe(); journal(); toast("Signed out. Your Momos are safe in your account."); }
+async function refreshMe(){ const m = await api("/me"); ME = m.user || null; const b = $("#who"); if (b) b.innerHTML = ME ? (ME.picture ? `<img src="${esc(ME.picture)}" alt="" referrerpolicy="no-referrer">` : "") + esc((ME.name || ME.email || "").split(" ")[0]) : ""; return m; }
+const saveCard = (why) => ME ? "" : `<div class="card save" id="saveme"><h3>💾 Save your Momos</h3><p class="muted" style="margin:4px 0 10px">${why}</p><div class="gbtn"></div></div>`;
+const mountSave = () => document.querySelectorAll("#saveme .gbtn").forEach(el => signInButton(el));
+function toast(t, ms=2800){ const el=$("#toast"); el.textContent=t; el.style.display="block"; clearTimeout(toast.h); toast.h=setTimeout(()=>el.style.display="none", ms); }
+async function api(path, body){ const r = await fetch(API+path, {method: body?"POST":"GET", headers:{"content-type":"application/json","x-tm-player":player}, body: body?JSON.stringify(body):undefined}); return r.json().catch(()=>({error:"network"})); }
+const svgOf = (inner) => `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+function getLoc(){ return new Promise(res => { if (!navigator.geolocation) return res(null); navigator.geolocation.getCurrentPosition(p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}), () => res(null), {enableHighAccuracy:true, timeout:8000, maximumAge:30000}); }); }
+
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on", x===b)); tab==="journal" ? journal() : tab==="map" ? mapView() : home(); });
+
+let mapsReady = null;
+// the Maps key isn't in the source: the API hands it out (it only works on treemomo.com anyway)
+function loadMaps(){ return mapsReady ||= api("/config").then(c => new Promise((res, rej) => { if (!c.maps_key) return rej(new Error("maps")); window.__tmMaps = res; const s = document.createElement("script"); s.src = `https://maps.googleapis.com/maps/api/js?key=${c.maps_key}&v=weekly&libraries=marker&loading=async&callback=__tmMaps`; s.async = true; s.onerror = () => { mapsReady = null; rej(new Error("maps")); }; document.head.appendChild(s); })).catch(e => { mapsReady = null; throw e; }); }
+async function mapView(){
+  $("#app").innerHTML = `<header><h1>Momo <span>Map</span></h1><span class="muted" id="mcount"></span></header><div id="map"></div>`;
+  const [j] = await Promise.all([api("/trees"), loadMaps().catch(() => null)]);
+  if (!window.google?.maps) { $("#map").innerHTML = `<div class="card"><p>The map couldn't load.</p></div>`; return; }
+  const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+  const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+  const trees = j.trees || [];
+  $("#mcount").textContent = `${trees.length} Momos`;
+  const map = new Map($("#map"), { mapId: "DEMO_MAP_ID", center: loc ? {lat:loc.lat, lng:loc.lng} : {lat:37.389, lng:-121.905}, zoom: 16, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy" });
+  const iw = new InfoWindow(), bounds = new google.maps.LatLngBounds(), seen = {};
+  trees.forEach((t, i) => {
+    // trees can share a GPS fix: fan them out a few meters so each Momo dances on its own
+    const k = t.lat.toFixed(4) + "," + t.lng.toFixed(4), n = seen[k] = (seen[k] || 0) + 1, a = n * 2.4;
+    const pos = { lat: t.lat + (n > 1 ? Math.sin(a) * 0.0001 : 0), lng: t.lng + (n > 1 ? Math.cos(a) * 0.00013 : 0) };
+    const el = document.createElement("div"); el.className = "mm " + esc(t.rarity || "");
+    el.style.animationDelay = (-(i * 0.37) % 1.6) + "s"; el.style.animationDuration = (1.3 + (i % 4) * 0.15) + "s";
+    el.innerHTML = (t.gift ? `<s class="ask">🎁</s>` : t.quest ? `<s class="ask">🧹</s>` : "") + svgOf(t.svg || "") + `<b>${esc(t.name)}</b>`;
+    const m = new AdvancedMarkerElement({ map, position: pos, content: el, title: t.name });
+    m.addListener("click", () => { const pl = t.place ? [t.place.neighborhood, t.place.city].filter(Boolean).join(", ") : "";
+      iw.setContent(`<div class="iw"><h4>${esc(t.name)}</h4><div><span class="rar ${esc(t.rarity)}" style="font-size:10px">${esc(t.rarity)}</span> ${esc(t.species)} · ${esc(t.health)}</div>${t.place_note ? `<p>${esc(t.place_note)}</p>` : ""}${t.moment ? `<p><i>${esc(t.moment)}</i></p>` : ""}<p class="muted">${pl ? esc(pl) + " · " : ""}seen ${t.visits}×</p>${t.quest ? `<p><b>🧹 ${esc(t.name)} asks:</b> <i>${esc(t.quest.ask)}</i></p><button class="btn sun" style="padding:8px;font-size:14px" onclick='startCleanup(${JSON.stringify({id:t.quest.id, ask:""})}, ${JSON.stringify(t.name).replace(/'/g,"&#39;")})'>🎥 I cleaned it: film the after</button>` : ""}${t.gift ? `<p><b>🎁 ${esc(t.name)} is holding a gift:</b> ${esc(t.gift.title)}${t.gift.from ? ` · from ${esc(t.gift.from)}` : ""}. Read the poem aloud at the tree to claim it.</p><button class="btn sun" style="padding:8px;font-size:14px" onclick='startClaim(${JSON.stringify(t.gift.id)})'>🎙 I'm here: read the poem</button>`
+        : `<button class="btn alt" style="padding:8px;font-size:14px;margin-top:6px" onclick='leaveGift(${JSON.stringify(t.id)}, ${JSON.stringify(t.name).replace(/'/g,"&#39;")})'>🎁 Leave a gift here</button>`}<button class="btn alt" style="padding:8px;font-size:14px;margin-top:6px" onclick='startHug(${JSON.stringify(t.id)}, ${JSON.stringify(t.name).replace(/'/g,"&#39;")})'>🤗 Hug this tree</button></div>`); iw.open({ map, anchor: m }); });
+    bounds.extend(pos);
+  });
+  if (loc) { const me = document.createElement("div"); me.className = "mm me"; me.innerHTML = "<i></i>"; new AdvancedMarkerElement({ map, position: {lat:loc.lat, lng:loc.lng}, content: me, title: "You" }); }
+  else getLoc().then(l => { if (l) { loc = l; } });
+  const lab = () => $("#map").classList.toggle("far", map.getZoom() < 17); map.addListener("zoom_changed", lab);
+  if (trees.length > 1) map.fitBounds(bounds, 60); else if (trees[0]) map.setCenter(trees[0]);
+}
+function home(){
+  $("#app").innerHTML = `<header><h1>Tree<span>Momo</span></h1><span class="muted">${loc ? "📍 located" : ""}</span></header>
+  <div class="card hero"><div class="big">🌳</div><h2 style="font-size:26px">Every tree hides a Momo</h2><p style="opacity:.9;margin:8px 0 4px">Film a tree slowly for about 10 seconds: trunk, branches, up into the leaves. Gemini 4 Argon watches it, checks how the tree is doing, and finds who's hiding there.</p>
+  <button class="btn sun" id="film">🎥 Film a tree</button></div>
+  <div class="card"><h3>How it works</h3><p class="muted" style="margin-top:6px">Your clip and location go into a shared tree map: species, health and visits over time. A Momo is born from each tree's own colors and shape. Some Momos carry a note from a business nearby.</p>
+  <p class="muted" style="margin-top:8px">Stay on sidewalks and public ground. Don't film people up close.</p></div>
+  <p class="center muted" style="text-align:center"><a href="#" id="spon">Test: place a demo sponsor note here</a></p>
+  <p class="muted" style="text-align:center;font-size:12px;margin-top:6px"><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></p>`;
+  $("#film").onclick = async () => { getLoc().then(l => loc = l); if (navigator.mediaDevices?.getUserMedia && window.MediaRecorder) openCamera().catch(() => $("#cam").click()); else $("#cam").click(); };
+  $("#spon").onclick = async (e) => { e.preventDefault(); loc = loc || await getLoc(); if (!loc) return toast("Location needed"); const r = await api("/sponsor", {lat:loc.lat, lng:loc.lng, name:"Demo Pizza Co.", offer:"2 for 1 slices today"}); toast(r.error || "Demo sponsor placed within 500 m"); };
+}
+
+let FRAMES = [];
+$("#cam3").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) hugAfter(f, (f.name.split(".").pop() || "mp4").toLowerCase()); };
+$("#cam2").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) cleanupAfter(f, (f.name.split(".").pop() || "mp4").toLowerCase()); };
+$("#cam").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  FRAMES = [];
+  process(f, (f.name.split(".").pop() || "mp4").toLowerCase());
+};
+// In-app camera: live preview, 10 s recording, a still every 0.4 s so the reveal never depends on video playback.
+async function openCamera(done = process, hints = ["Slowly… trunk, branches, up into the leaves", "👀 Something's watching you from in there…"], opts = {}){
+  const MAX = opts.max || 10;
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: !!opts.audio });
+  const box = $("#camv"), live = $("#live"); box.style.display = "flex"; live.srcObject = stream; await live.play().catch(() => {});
+  box.querySelector(".poemov")?.remove();
+  if (opts.poem) box.insertAdjacentHTML("beforeend", `<div class="poemov">${esc(opts.poem).replace(/\n/g, "<br>")}</div>`);
+  const close = () => { stream.getTracks().forEach(t => t.stop()); box.style.display = "none"; box.querySelectorAll(".leafp,.glint,.poemov").forEach(x => x.remove()); };
+  $("#cclose").onclick = () => { if (rec && rec.state === "recording") { rec.onstop = null; rec.stop(); } clearInterval(grab); clearInterval(fx); close(); };
+  let rec = null, grab = null, fx = null, t0 = 0; FRAMES = [];
+  const mime = ["video/mp4", "video/webm;codecs=vp9", "video/webm"].find(m => MediaRecorder.isTypeSupported(m)) || "";
+  const btn = $("#crec"); btn.classList.remove("on"); $("#ctime").textContent = MAX + "s"; $("#chint").textContent = opts.ready || "Point at a tree. Tap record and move slowly: trunk, branches, leaves.";
+  btn.onclick = () => {
+    if (rec && rec.state === "recording") { rec.stop(); return; }
+    const chunks = []; rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : undefined);
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    rec.onstop = () => { clearInterval(grab); clearInterval(fx); const type = rec.mimeType || mime || "video/mp4"; close(); done(new Blob(chunks, { type }), type.includes("webm") ? "webm" : "mp4"); };
+    const c = document.createElement("canvas"), g = c.getContext("2d");
+    t0 = performance.now(); rec.start(500); btn.classList.add("on");
+    $("#chint").textContent = hints[0];
+    grab = setInterval(() => {
+      const t = (performance.now() - t0) / 1000;
+      if (live.videoWidth) { c.width = 720; c.height = Math.round(720 * live.videoHeight / live.videoWidth); g.drawImage(live, 0, 0, c.width, c.height); FRAMES.push({ t, url: c.toDataURL("image/jpeg", 0.75) }); }
+      $("#ctime").textContent = Math.max(0, Math.ceil(MAX - t)) + "s";
+      if (t >= MAX && rec.state === "recording") rec.stop();
+      if (t > 3) $("#chint").textContent = hints[1];
+    }, 400);
+    if (!opts.poem) fx = setInterval(() => {   // just for fun while filming: falling leaves and a pair of eyes in the dark
+      const el = document.createElement("div");
+      if (Math.random() < .7) { el.className = "leafp"; el.textContent = ["🍃","🍂","🌿"][Math.floor(Math.random()*3)]; }
+      else el.className = "glint";
+      el.style.left = (10 + Math.random() * 80) + "%"; el.style.top = (10 + Math.random() * 55) + "%";
+      box.appendChild(el); setTimeout(() => el.remove(), 2500);
+    }, 650);
+  };
+}
+function putVideo(url, f, onp){ return new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open("PUT", url); x.setRequestHeader("content-type", f.type || "video/mp4"); x.upload.onprogress = (ev) => { if (ev.lengthComputable && onp) onp(ev.loaded/ev.total); }; x.onload = () => x.status < 300 ? res() : rej(new Error("upload "+x.status)); x.onerror = () => rej(new Error("upload failed")); x.send(f); }); }
+// Cleanup: the Momo asked for help; film the same ground after tidying, Argon compares before and after.
+let QUEST = null;
+function startCleanup(q, momoName){
+  QUEST = { ...q, momo: momoName };
+  getLoc().then(l => { if (l) loc = l; });
+  const go = () => openCamera(cleanupAfter, ["Film the same ground you cleaned, slowly, with the tree in view", `🧹 ${momoName} is watching…`]).catch(() => $("#cam2").click());
+  if (navigator.mediaDevices?.getUserMedia && window.MediaRecorder) go(); else $("#cam2").click();
+}
+async function cleanupAfter(f, ext){
+  const q = QUEST;
+  $("#app").innerHTML = `<header><h1>Clean<span>up</span></h1></header><div class="card load"><div class="leaf">🧹</div><h2 id="st">Sending your after clip…</h2><p class="muted" id="sub">Argon compares it with the clip from when ${esc(q.momo)} asked</p><div class="prog"><i id="pg"></i></div></div>`;
+  loc = await getLoc() || loc;
+  if (!loc) return fail("Turn on location so the Momo knows you're at its tree.");
+  const u = await api("/upload-url", {ext}); if (u.error) return fail(u.error);
+  try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (e) { return fail(e.message); }
+  $("#st").textContent = "Argon is comparing before and after…"; $("#pg").style.width = "75%";
+  const r = await api("/cleanup", {quest: q.id, path: u.path, lat: loc.lat, lng: loc.lng});
+  if (r.error) return fail(r.error);
+  if (!r.ok) { $("#app").innerHTML = `<header><h1>Clean<span>up</span></h1></header><div class="card"><h2>Not quite yet</h2><p style="margin:8px 0">${esc(r.note)}</p>${(r.remaining||[]).length ? `<p class="muted">Still there: ${esc(r.remaining.join(", "))}</p>` : ""}<button class="btn sun" id="again">🎥 Film the after clip again</button><button class="btn alt" onclick="location.reload()">Later</button></div>`; $("#again").onclick = () => startCleanup(q, q.momo); return; }
+  $("#app").innerHTML = `<header><h1>Clean<span>up</span></h1></header>
+    ${r.earned ? `<div class="card badge-card"><div class="big">🌳🏅</div><h2>Friend of the Tall</h2><p>You've cleaned up around ${r.cleaned_trees} trees. The Momos will remember you.</p></div>` : ""}
+    <div class="card" style="background:#eaf5e6"><h2>✨ ${esc(q.momo)} says thank you</h2><p style="margin-top:8px;font-size:17px"><i>${esc(r.thanks)}</i></p>${(r.removed||[]).length ? `<p class="muted" style="margin-top:8px">Cleared: ${esc(r.removed.join(", "))}</p>` : ""}</div>
+    ${saveCard("Sign in with Google so this cleanup counts toward your badge on any phone.")}${badgeCard(r)}<button class="btn" onclick="location.reload()">Done</button>`;
+  mountSave();
+}
+// Gifts: a poem plus a code left in a Momo. The first person to read the poem aloud at the tree gets the code.
+let GIFT = null;
+function needSignIn(why){
+  $("#app").innerHTML = `<header><h1>Tree<span>Momo</span></h1></header>${saveCard(why).replace("💾 Save your Momos", "🔑 Sign in first")}<button class="btn alt" onclick="location.reload()">Back</button>`; mountSave();
+}
+async function startClaim(giftId){
+  if (!ME) await refreshMe();
+  if (!ME) return needSignIn("Gifts go to real people. Sign in with Google, then read the poem aloud at the tree to claim it.");
+  $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header><div class="card load"><div class="leaf">🎁</div><h2>Finding where you are…</h2></div>`;
+  loc = await getLoc() || loc;
+  const q = new URLSearchParams({ id: giftId, ...(loc ? { lat: loc.lat, lng: loc.lng } : {}) });
+  const g = await api("/gift?" + q);
+  if (g.error) return fail(g.error);
+  GIFT = g;
+  $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header>
+    <div class="card gift"><h3>🎁 ${esc(g.title)}</h3><p class="muted">${g.from ? `Left by ${esc(g.from)} · ` : ""}held by ${esc(g.momo)}</p>
+    ${g.near ? `<div class="poem">${esc(g.poem).replace(/\n/g, "<br>")}</div><p class="muted" style="margin-top:8px">Read the whole poem out loud while you film the tree. The poem stays on screen while you record. The first person ${esc(g.momo)} hears gets the gift.</p><button class="btn sun" id="read">🎙 Read it aloud</button>`
+      : `<p style="margin-top:8px">The poem only appears at the tree. Go find ${esc(g.momo)} on the map, then open this gift there.</p><button class="btn" onclick="document.querySelector('[data-t=map]').click()">🗺️ Open the map</button>`}
+    </div>`;
+  if ($("#read")) $("#read").onclick = () => openCamera(claimAfter, [`Read it aloud, ${esc(g.momo)} is listening…`, "🎙 Keep going, all the way to the end"], { audio: true, max: 60, poem: g.poem, ready: "Point at the tree, tap record, and read the poem aloud. Tap again when you're done." })
+    .catch(() => toast("The camera and microphone are needed to claim a gift."));
+}
+async function claimAfter(f, ext){
+  const g = GIFT;
+  $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header><div class="card load"><div class="leaf">🎙</div><h2 id="st">Sending your reading…</h2><p class="muted">${esc(g.momo)} listens, then the clip is deleted</p><div class="prog"><i id="pg"></i></div></div>`;
+  loc = await getLoc() || loc;
+  if (!loc) return fail("Turn on location so the Momo knows you're at its tree.");
+  const u = await api("/upload-url", {ext}); if (u.error) return fail(u.error);
+  try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (e) { return fail(e.message); }
+  $("#st").textContent = `${g.momo} is listening…`; $("#pg").style.width = "80%";
+  const r = await api("/claim", {gift: g.id, path: u.path, lat: loc.lat, lng: loc.lng});
+  if (r.error) return fail(r.error);
+  if (!r.ok) { $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header><div class="card"><h2>Almost</h2><p style="margin:8px 0">${esc(r.note)}</p><button class="btn sun" id="again">🎙 Read it again</button><button class="btn alt" onclick="location.reload()">Later</button></div>`; $("#again").onclick = () => startClaim(g.id); return; }
+  $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header>
+    <div class="card badge-card"><div class="big">🎁</div><h2>${esc(r.title)}</h2><p>${r.from ? `From ${esc(r.from)}, ` : ""}through ${esc(r.momo)}</p></div>
+    <div class="card" style="background:#eaf5e6"><p style="font-size:17px"><i>${esc(r.momo_line)}</i></p></div>
+    <div class="card"><h3>Your code</h3><div class="code" id="gcode">${esc(r.code)}</div><button class="btn alt" id="copy">Copy code</button>${r.how ? `<p style="margin-top:8px">${esc(r.how)}</p>` : ""}<p class="muted" style="margin-top:8px">It's saved in your Journal under Gifts.</p></div>
+    <div class="card"><h3>Pay it forward</h3><p class="muted" style="margin:4px 0 10px">Leave a poem and a gift in another tree for the next person.</p><button class="btn" onclick="document.querySelector('[data-t=map]').click()">🗺️ Pick a tree</button></div>`;
+  $("#copy").onclick = () => navigator.clipboard?.writeText(r.code).then(() => toast("Copied"));
+}
+async function leaveGift(treeId, momoName){
+  if (!ME) await refreshMe();
+  if (!ME) return needSignIn("Sign in with Google to leave a gift, so people know it's from a real person.");
+  $("#app").innerHTML = `<header><h1>Leave a <span>gift</span></h1></header>
+    <div class="card"><h3>🎁 In ${esc(momoName)}'s tree</h3><p class="muted" style="margin:4px 0 10px">Write a poem. The first person to read it aloud at this tree gets your gift.</p>
+    <textarea id="gpoem" maxlength="800" rows="7" placeholder="Your poem, a few lines…"></textarea>
+    <input class="t" id="gtitle" maxlength="80" placeholder="The gift (e.g. A free slice at Tony's on Lundy)">
+    <input class="t" id="gcode2" maxlength="80" placeholder="The code (only the finder sees it)">
+    <input class="t" id="ghow" maxlength="240" placeholder="How to use it (optional)">
+    <input class="t" id="gfrom" maxlength="40" placeholder="From (your first name, optional)" value="${esc((ME.name || "").split(" ")[0])}">
+    <button class="btn sun" id="gsend">🎁 Leave it in the tree</button><button class="btn alt" onclick="location.reload()">Cancel</button></div>`;
+  $("#gsend").onclick = async () => {
+    const b = { tree: treeId, poem: $("#gpoem").value, title: $("#gtitle").value, code: $("#gcode2").value, how: $("#ghow").value, from: $("#gfrom").value };
+    $("#gsend").disabled = true; $("#gsend").textContent = "Checking…";
+    const r = await api("/gift", b);
+    if (r.error) { $("#gsend").disabled = false; $("#gsend").textContent = "🎁 Leave it in the tree"; return toast(r.error, 4000); }
+    $("#app").innerHTML = `<header><h1>Leave a <span>gift</span></h1></header><div class="card badge-card"><div class="big">🎁</div><h2>${esc(r.momo)} is holding it</h2><p>The first person to read your poem aloud at this tree gets it. You'll see when it's found in your Journal.</p></div><button class="btn" onclick="location.reload()">Done</button>`;
+  };
+}
+// Hugs: film yourself or a friend hugging the tree; Argon checks it, the clip is deleted right after.
+let HUGT = null;
+function startHug(treeId, momoName){
+  HUGT = { id: treeId, momo: momoName };
+  getLoc().then(l => { if (l) loc = l; });
+  const go = () => openCamera(hugAfter, ["Hug the trunk: have a friend film, or prop the phone up", `🤗 ${momoName} can feel it…`]).catch(() => $("#cam3").click());
+  if (navigator.mediaDevices?.getUserMedia && window.MediaRecorder) go(); else $("#cam3").click();
+}
+async function hugAfter(f, ext){
+  const h = HUGT;
+  $("#app").innerHTML = `<header><h1>Tree <span>Hug</span></h1></header><div class="card load"><div class="leaf">🤗</div><h2 id="st">Sending your hug…</h2><p class="muted">Argon checks it, then the clip is deleted</p><div class="prog"><i id="pg"></i></div></div>`;
+  loc = await getLoc() || loc;
+  if (!loc) return fail("Turn on location so the Momo knows you're at its tree.");
+  const u = await api("/upload-url", {ext}); if (u.error) return fail(u.error);
+  try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (e) { return fail(e.message); }
+  $("#st").textContent = `${h.momo} is feeling it…`; $("#pg").style.width = "80%";
+  const r = await api("/hug", {tree: h.id, path: u.path, lat: loc.lat, lng: loc.lng});
+  if (r.error) return fail(r.error);
+  if (!r.ok) { $("#app").innerHTML = `<header><h1>Tree <span>Hug</span></h1></header><div class="card"><h2>Almost</h2><p style="margin:8px 0">${esc(r.note)}</p><button class="btn sun" id="again">🎥 Try the hug again</button><button class="btn alt" onclick="location.reload()">Later</button></div>`; $("#again").onclick = () => startHug(h.id, h.momo); return; }
+  $("#app").innerHTML = `<header><h1>Tree <span>Hug</span></h1></header>
+    ${r.earned ? `<div class="card badge-card"><div class="big">🌳🤗</div><h2>Tree Hugger</h2><p>Ten hugs. The trees know your name now.</p></div>` : ""}
+    <div class="card" style="background:#eaf5e6"><h2>🤗 ${esc(r.momo)} felt that</h2><p style="margin-top:8px;font-size:17px"><i>${esc(r.thanks)}</i></p></div>
+    ${saveCard("Sign in with Google so your hugs count on any phone.")}${badgeCard(r)}<button class="btn" onclick="location.reload()">Done</button>`;
+  mountSave();
+}
+function badgeCard(st){
+  return cleanCard(st) + hugCard(st);
+}
+function hugCard(st){
+  const n = Math.min(st.hugs || 0, 10);
+  return `<div class="card"><h3>🤗 Tree Hugger</h3><p class="muted">Hug a tree 10 times: film yourself or a friend. One hug per tree per day.</p><div class="dots small">${[...Array(10)].map((_, i) => `<span class="${i < n ? "on" : ""}">🤗</span>`).join("")}</div><p style="margin-top:4px"><b>${st.hugger?.have ? "Earned" : `${n} of 10 hugs`}</b></p></div>`;
+}
+function cleanCard(st){
+  const n = Math.min(st.cleaned_trees || 0, 5);
+  return `<div class="card"><h3>🏅 Friend of the Tall</h3><p class="muted">Clean up around 5 different trees when their Momos ask.</p><div class="dots">${[0,1,2,3,4].map(i => `<span class="${i < n ? "on" : ""}">🌳</span>`).join("")}</div><p style="margin-top:4px"><b>${st.badge?.have ? "Earned" : `${n} of 5 trees`}</b></p></div>`;
+}
+async function process(f, ext){
+  if (f.size > 190e6) return toast("That video is too big. Try 10 seconds.");
+  videoURL && URL.revokeObjectURL(videoURL); videoURL = URL.createObjectURL(f);
+  $("#app").innerHTML = `<header><h1>Tree<span>Momo</span></h1></header><div class="card load"><div class="leaf">🍃</div><h2 id="st">Sending your tree…</h2><p class="muted" id="sub"></p><div class="prog"><i id="pg"></i></div></div>`;
+  loc = loc || await getLoc();
+  const u = await api("/upload-url", {ext});
+  if (u.error) return fail(u.error);
+  try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (err) { return fail(err.message); }
+  const lines = ["Argon is watching your tree…", "Reading the bark and the canopy…", "Checking the branches for hideouts…", "Something moved in the leaves…", "A Momo is waking up…"];
+  let i = 0; $("#st").textContent = lines[0]; const tick = setInterval(() => { i = Math.min(lines.length-1, i+1); $("#st").textContent = lines[i]; $("#pg").style.width = Math.min(97, 60 + i*8) + "%"; }, 7000);
+  $("#sub").textContent = "About 30 to 60 seconds";
+  R = await api("/analyze", {path:u.path, lat:loc?.lat, lng:loc?.lng, acc:loc?.acc});
+  clearInterval(tick);
+  if (R.error) return fail(R.error);
+  reveal();
+};
+function wxIcon(w){ if (!w) return ""; const s = w.sky || ""; return !w.day ? "🌙" : /thunder/.test(s) ? "⛈" : /snow/.test(s) ? "🌨" : /rain|drizzle|shower/.test(s) ? "🌧" : /fog/.test(s) ? "🌫" : /overcast|cloudy/.test(s) ? "⛅" : "☀️"; }
+function drawChron(list){
+  const el = $("#chron"); if (!el) return;
+  el.innerHTML = list.map(e => `<div class="e ${e.kind}"><div class="when">${new Date(e.at).toLocaleString([], {dateStyle:"medium", timeStyle:"short"})}${e.kind==="moment" && e.weather ? ` · ${wxIcon(e.weather)} ${esc(e.weather.sky)}, ${e.weather.temp_f}°F` : ""}${e.kind==="memory" ? " · memory" : e.kind==="cleanup" ? " · 🧹 cleaned up, checked by Argon" : e.kind==="hug" ? " · 🤗 hugged" : e.kind==="gift" ? " · 🎁 a gift found its person" : e.kind==="steward" ? (e.verified ? " · ✔ from the tree's steward" : " · steward note (unverified)") : ""}</div><div>${e.kind==="moment" || e.kind==="cleanup" || e.kind==="hug" || e.kind==="gift" ? "<i>" + esc(e.text) + "</i>" : "“" + esc(e.text) + "”" + (e.author ? ` <b>— ${esc(e.author)}</b>` : "")}</div></div>`).join("") || `<p class="muted">Nothing yet.</p>`;
+}
+function fail(m){ $("#app").innerHTML = `<div class="card"><h2>Hmm.</h2><p class="muted" style="margin:8px 0">${esc(m)}</p><button class="btn" onclick="location.reload()">Try again</button></div>`; }
+
+async function reveal(){
+  const t = R.tree, m = R.momo, p = R.placement;
+  const hc = t.health_score >= 75 ? "#3f9d5a" : t.health_score >= 50 ? "#e2b23a" : "#d1453b";
+  $("#app").innerHTML = `<header><h1>Tree<span>Momo</span></h1><span class="muted">tree visit #${R.tree.visits}</span></header>
+    <div id="stage">${FRAMES.length ? `<img id="frame" alt="">` : `<video id="vid" playsinline muted autoplay preload="auto" src="${videoURL}"></video>`}<div id="momo" style="display:none">${svgOf(m.svg)}${R.sponsor?`<div class="tag">📜 ${esc(R.sponsor.name)}</div>`:""}</div><div class="fitnote" id="fit"></div></div>
+    ${R.returning ? `<div class="card" style="margin-top:14px;background:#fffbe8"><b>🌟 You found ${esc(m.name)}!</b> This Momo lives in this tree. You're finder #${R.tree.visits}${m.mood ? ` · today it seems ${esc(m.mood)}` : ""}.</div>` : `<div class="card" style="margin-top:14px;background:#eaf5e6"><b>✨ First discovery.</b> No one has found the Momo in this tree before you. It will live here for everyone who comes after.</div>`}
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:26px">${esc(m.name)}</h2><span class="rar ${esc(m.rarity)}">${esc(m.rarity)}</span></div>
+      <div class="muted">${esc(m.line)} · ${esc(m.temperament)}</div>${R.place && (R.place.neighborhood || R.place.city) ? `<div class="muted">📍 ${esc([R.place.neighborhood, R.place.city].filter(Boolean).join(", "))}${m.place_note ? " · " + esc(m.place_note) : ""}</div>` : ""}<p style="margin-top:8px"><i>${esc(m.lore)}</i></p>
+      ${R.sponsor ? `<div class="card" style="background:#fffbe8;margin:12px 0 0;box-shadow:none"><b>📜 A note tied to its foot</b>${R.sponsor.demo?'<span class="demo">DEMO</span>':''}<div style="margin-top:4px">${esc(R.sponsor.offer)} at <b>${esc(R.sponsor.name)}</b>, ${R.sponsor.distance_m} m away</div></div>` : ""}
+      <div class="row"><button class="btn alt" id="doc">📔 Document</button><button class="btn" id="cap">🫙 Capture</button></div></div>
+    ${R.quest ? `<div class="card quest"><h3>🧹 ${esc(m.name)} asks for help</h3><p style="margin-top:6px;font-size:17px"><i>${esc(R.quest.ask)}</i></p><p class="muted" style="margin-top:6px">Tidy it up, then film the same ground again. Argon compares before and after. Clean up around 5 trees to become a <b>Friend of the Tall</b>.</p><button class="btn sun" id="clean">🎥 I cleaned it: film the after</button></div>` : R.report ? `<div class="card"><h3>⚠️ ${esc(m.name)} is worried</h3><p style="margin-top:6px"><i>${esc(R.report)}</i></p><p class="muted">Please don't pick this up yourself.</p></div>` : ""}
+    ${R.gift ? `<div class="card gift"><h3>🎁 ${esc(m.name)} is holding a gift</h3><p class="muted">${esc(R.gift.title)}${R.gift.from ? ` · from ${esc(R.gift.from)}` : ""}</p><div class="poem">${esc(R.gift.poem || "").replace(/\n/g, "<br>")}</div><p class="muted" style="margin-top:8px">Read the poem aloud at this tree to claim it. First reader wins.</p><button class="btn sun" id="claim">🎙 Read it aloud</button></div>`
+      : `<div class="card"><h3>🎁 Pay it forward</h3><p class="muted" style="margin-top:4px">Leave a poem and a gift in ${esc(m.name)} for the next person who finds it.</p><button class="btn alt" id="give">🎁 Leave a gift</button></div>`}
+    <div class="card"><h3>🤗 Hug ${esc(m.name)}'s tree</h3><p class="muted" style="margin-top:4px">Have a friend film you hugging the trunk, or prop the phone up. 10 hugs makes you a <b>Tree Hugger</b>.</p><button class="btn alt" id="hug">🤗 Film a hug</button></div>
+    ${R.moment ? `<div class="card"><h3>🕰 This moment</h3>${R.weather ? `<div class="muted" style="margin-top:4px">${wxIcon(R.weather)} ${esc(R.weather.sky)} · ${R.weather.temp_f}°F · wind ${R.weather.wind_mph} mph · ${new Date().toLocaleString([], {dateStyle:"medium", timeStyle:"short"})}</div>` : ""}<p style="margin-top:8px;font-size:17px"><i>${esc(R.moment)}</i></p></div>` : ""}
+    <div class="card"><h3>📜 ${esc(m.name)}'s chronicle</h3><p class="muted">Every discovery of this Momo, and what finders left for the next person.</p><div class="chron" id="chron"></div>
+      <div id="memf"><b style="display:block;margin-top:6px">Leave a memory for the next finder</b><textarea id="memt" maxlength="280" placeholder="What's happening right now, something about this tree, a wish…"></textarea><input class="t" id="mema" maxlength="40" placeholder="Your first name or nickname (optional)"><button class="btn" id="memb">Leave it in the tree</button></div></div>
+    <div class="card"><h3>🌳 ${esc(t.species)} <span class="muted"><i>${esc(t.scientific)}</i> · ${Math.round((t.confidence||0)*100)}% sure</span></h3>
+      <div style="display:flex;justify-content:space-between;margin-top:8px"><b>Health: ${esc(t.health_label)}</b><span>${t.health_score}/100 · ~${t.height_m} m tall</span></div>
+      <div class="bar"><i style="width:${t.health_score}%;background:${hc}"></i></div>
+      <ul class="obs">${(t.observations||[]).map(o=>`<li>${esc(o)}</li>`).join("")}</ul>
+      ${t.care_tip?`<p style="margin-top:8px">💧 ${esc(t.care_tip)}</p>`:""}
+      <p class="muted" style="margin-top:8px">Couldn't see: ${esc(t.cant_see)}. An observation from video, not an arborist's diagnosis.</p></div>`;
+  $("#hug").onclick = () => startHug(t.id, m.name);
+  if ($("#claim")) $("#claim").onclick = () => startClaim(R.gift.id);
+  if ($("#give")) $("#give").onclick = () => leaveGift(t.id, m.name);
+  if ($("#clean")) $("#clean").onclick = () => startCleanup(R.quest, m.name);
+  $("#doc").onclick = () => keep("document"); $("#cap").onclick = () => keep("capture");
+  drawChron(R.chronicle || []);
+  $("#memb").onclick = async () => { const text = $("#memt").value.trim(); if (!text) return; $("#memb").disabled = true; $("#memb").textContent = "Checking…"; const r = await api("/memory", {sighting: R.sighting, text, author: $("#mema").value.trim()}); if (r.error) { $("#memb").disabled = false; $("#memb").textContent = "Leave it in the tree"; return toast(r.error); } drawChron(r.chronicle); $("#memf").innerHTML = `<p class="muted">Your memory is in the tree. The next finder will see it.</p>`; };
+  if (FRAMES.length) {
+    const fr = FRAMES.reduce((a, b) => Math.abs(b.t - p.t) < Math.abs(a.t - p.t) ? b : a);
+    const im = $("#frame"); im.src = fr.url; await new Promise(r => { im.onload = r; im.onerror = r; });
+    place(p, true);
+    setTimeout(() => fitLoop(1).catch(e => { const n = $("#fit"); n.style.display = "block"; n.textContent = "Fit check failed: " + e.message; }), 1400);
+    return;
+  }
+  const v = $("#vid");
+  // iOS only decodes frames once the video plays: play muted up to the hideout moment, then freeze there.
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  try { await v.play(); } catch (e) {}
+  await Promise.race([new Promise(res => { if (v.readyState >= 1) res(); else v.onloadedmetadata = res; }), wait(3000)]);
+  const target = Math.min(p.t, Math.max(0, (v.duration || p.t + 1) - 0.1));
+  await Promise.race([new Promise(res => { const f = () => { if (v.currentTime >= target - 0.05) { v.removeEventListener("timeupdate", f); res(); } }; v.addEventListener("timeupdate", f); f(); }), wait((target + 2) * 1000)]);
+  v.pause();
+  if (Math.abs(v.currentTime - target) > 0.3) { try { v.currentTime = target; await Promise.race([new Promise(r => v.onseeked = r), wait(1500)]); } catch (e) {} }
+  place(p, true);
+  setTimeout(() => fitLoop(1).catch(e => { const n = $("#fit"); n.style.display = "block"; n.textContent = "Fit check failed: " + e.message; }), 1400);
+}
+function place(p, pop){
+  const v = $("#frame") || $("#vid"), el = $("#momo"), H = v.clientHeight;
+  el.style.display = "block"; el.style.left = (p.x*100)+"%"; el.style.top = (p.y*100)+"%";
+  const s = p.size * H; el.style.width = s+"px"; el.style.height = s+"px";
+  el.querySelector("svg").style.transform = p.flip ? "scaleX(-1)" : "";
+  if (pop) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+}
+async function composite(p){
+  const v = $("#frame") || $("#vid"), c = document.createElement("canvas"); const vw = v.naturalWidth || v.videoWidth, vh = v.naturalHeight || v.videoHeight; const W = 720, Hh = Math.round(720 * vh / vw);
+  c.width = W; c.height = Hh; const g = c.getContext("2d"); g.drawImage(v, 0, 0, W, Hh);
+  const img = new Image(); img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgOf(R.momo.svg));
+  await new Promise(r => { img.onload = r; img.onerror = r; });
+  const s = p.size * Hh; g.drawImage(img, p.x*W - s/2, p.y*Hh - s/2, s, s);
+  return c.toDataURL("image/jpeg", 0.8);
+}
+async function fitLoop(round){
+  const note = $("#fit"); note.style.display = "block"; note.textContent = `🔍 Argon is checking the fit (pass ${round})…`;
+  const r = await api("/fit", {sighting: R.sighting, image: await composite(R.placement)});
+  if (r.error) { note.style.display = "none"; return; }
+  note.textContent = (r.ok ? "✅ " : "✏️ ") + r.note;
+  R.placement = r.placement; place(r.placement, false);
+  if (!r.ok && round < 2) setTimeout(() => fitLoop(round+1), 1600);
+  else setTimeout(() => { note.style.display = "none"; }, 4000);
+}
+async function keep(action){
+  const r = await api("/keep", {sighting: R.sighting, action});
+  if (r.error) return toast(r.error);
+  if (r.status === "escaped") { toast(`${R.momo.name} slipped back into the leaves!`); $("#momo").style.display = "none"; }
+  else toast(r.status === "captured" ? `You caught ${R.momo.name}!` : `${R.momo.name} is in your journal`);
+  $("#doc").disabled = $("#cap").disabled = true;
+  if (!ME && !$("#saveme")) { $("#doc").closest(".card").insertAdjacentHTML("afterend", saveCard(`${esc(R.momo.name)} is in your journal on this phone. Sign in with Google to keep it with you on any phone.`)); mountSave(); }
+}
+async function journal(){
+  $("#app").innerHTML = `<header><h1>Journal</h1></header><div class="card">Loading…</div>`;
+  const [j, me, gf] = await Promise.all([api("/journal"), refreshMe(), api("/gifts")]);
+  const gifts = (gf.got || []).length || (gf.left || []).length ? `<div class="card"><h3>🎁 Gifts</h3>${(gf.got || []).map(g => `<div class="gline"><b>${esc(g.title)}</b> <span class="muted">from ${esc(g.from_name || "someone")} via ${esc(g.momo)}</span><div class="code sm">${esc(g.code)}</div>${g.how ? `<div class="muted">${esc(g.how)}</div>` : ""}</div>`).join("")}${(gf.left || []).map(g => `<div class="gline"><span class="muted">You left</span> <b>${esc(g.title)}</b> <span class="muted">in ${esc(g.momo)} · ${g.status === "claimed" ? "✨ found its person" : "waiting"}</span></div>`).join("")}</div>` : "";
+  $("#app").innerHTML = `<header><h1>Journal</h1><span class="muted">${(j.entries||[]).length} Momos</span></header>` + (me.user ? `<div class="card acct">${me.user.picture ? `<img src="${esc(me.user.picture)}" alt="" referrerpolicy="no-referrer">` : ""}<div><b>${esc(me.user.name || "")}</b><div class="muted">${esc(me.user.email)}</div></div><a href="#" id="so">Sign out</a></div>` : saveCard("Sign in with Google so your Momos, cleanups and hugs stay yours on any phone. You can keep playing without it.")) + gifts + badgeCard(me) + ((j.entries||[]).length ? `<div class="journal">${j.entries.map(e => `<div class="jent">${svgOf(e.momo.svg)}<div class="f" style="font-weight:700">${esc(e.momo.name)}</div><span class="rar ${esc(e.momo.rarity)}" style="font-size:10px">${esc(e.momo.rarity)}</span><div class="muted">${esc(e.species)} · ${esc(e.health)}</div><div class="muted">${e.status === "captured" ? "🫙 caught" : e.status === "escaped" ? "🍃 escaped" : "📔 documented"}</div></div>`).join("")}</div>` : `<div class="card"><p>No Momos yet. Go film a tree.</p></div>`);
+  mountSave(); if ($("#so")) $("#so").onclick = (e) => { e.preventDefault(); signOut(); };
+}
+home(); refreshMe();
+</script>
+</body>
+</html>

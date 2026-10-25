@@ -1,0 +1,17 @@
+{
+ "name": "treemomo-api",
+ "version": "1.0.0",
+ "type": "module",
+ "private": true,
+ "engines": {
+  "node": ">=22"
+ },
+ "scripts": {
+  "start": "node server.mjs"
+ },
+ "dependencies": {
+  "postgres": "^3.4.5",
+  "@google-cloud/storage": "^7.14.0",
+  "google-auth-library": "^9.15.0"
+ }
+}

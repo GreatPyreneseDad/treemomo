@@ -1,0 +1,8 @@
+.vercel
+.secrets
+node_modules
+supabase/.temp
+cloudrun/import.sql
+cloudrun/reset-gift.sql
+.DS_Store
+.env*
