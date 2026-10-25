@@ -131,7 +131,7 @@ const mountSave = () => document.querySelectorAll("#saveme .gbtn").forEach(el =>
 function toast(t, ms=2800){ const el=$("#toast"); el.textContent=t; el.style.display="block"; clearTimeout(toast.h); toast.h=setTimeout(()=>el.style.display="none", ms); }
 async function api(path, body){ const r = await fetch(API+path, {method: body?"POST":"GET", headers:{"content-type":"application/json","x-tm-player":player}, body: body?JSON.stringify(body):undefined}); return r.json().catch(()=>({error:"network"})); }
 const svgOf = (inner) => `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
-function getLoc(){ return new Promise(res => { if (!navigator.geolocation) return res(null); navigator.geolocation.getCurrentPosition(p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}), () => res(null), {enableHighAccuracy:true, timeout:8000, maximumAge:30000}); }); }
+function getLoc(){ return new Promise(res => { if (!navigator.geolocation) return res(null); navigator.geolocation.getCurrentPosition(p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}), () => res(null), {enableHighAccuracy:true, timeout:10000, maximumAge:5000}); }); }
 
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on", x===b)); tab==="journal" ? journal() : tab==="map" ? mapView() : home(); });
 
@@ -239,7 +239,7 @@ async function cleanupAfter(f, ext){
   const u = await api("/upload-url", {ext}); if (u.error) return fail(u.error);
   try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (e) { return fail(e.message); }
   $("#st").textContent = "Argon is comparing before and after…"; $("#pg").style.width = "75%";
-  const r = await api("/cleanup", {quest: q.id, path: u.path, lat: loc.lat, lng: loc.lng});
+  const r = await api("/cleanup", {quest: q.id, path: u.path, lat: loc.lat, lng: loc.lng, acc: loc.acc});
   if (r.error) return fail(r.error);
   if (!r.ok) { $("#app").innerHTML = `<header><h1>Clean<span>up</span></h1></header><div class="card"><h2>Not quite yet</h2><p style="margin:8px 0">${esc(r.note)}</p>${(r.remaining||[]).length ? `<p class="muted">Still there: ${esc(r.remaining.join(", "))}</p>` : ""}<button class="btn sun" id="again">🎥 Film the after clip again</button><button class="btn alt" onclick="location.reload()">Later</button></div>`; $("#again").onclick = () => startCleanup(q, q.momo); return; }
   $("#app").innerHTML = `<header><h1>Clean<span>up</span></h1></header>
@@ -258,7 +258,7 @@ async function startClaim(giftId){
   if (!ME) return needSignIn("Gifts go to real people. Sign in with Google, then read the poem aloud at the tree to claim it.");
   $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header><div class="card load"><div class="leaf">🎁</div><h2>Finding where you are…</h2></div>`;
   loc = await getLoc() || loc;
-  const q = new URLSearchParams({ id: giftId, ...(loc ? { lat: loc.lat, lng: loc.lng } : {}) });
+  const q = new URLSearchParams({ id: giftId, ...(loc ? { lat: loc.lat, lng: loc.lng, acc: Math.round(loc.acc || 0) } : {}) });
   const g = await api("/gift?" + q);
   if (g.error) return fail(g.error);
   GIFT = g;
@@ -278,7 +278,7 @@ async function claimAfter(f, ext){
   const u = await api("/upload-url", {ext}); if (u.error) return fail(u.error);
   try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (e) { return fail(e.message); }
   $("#st").textContent = `${g.momo} is listening…`; $("#pg").style.width = "80%";
-  const r = await api("/claim", {gift: g.id, path: u.path, lat: loc.lat, lng: loc.lng});
+  const r = await api("/claim", {gift: g.id, path: u.path, lat: loc.lat, lng: loc.lng, acc: loc.acc});
   if (r.error) return fail(r.error);
   if (!r.ok) { $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header><div class="card"><h2>Almost</h2><p style="margin:8px 0">${esc(r.note)}</p><button class="btn sun" id="again">🎙 Read it again</button><button class="btn alt" onclick="location.reload()">Later</button></div>`; $("#again").onclick = () => startClaim(g.id); return; }
   $("#app").innerHTML = `<header><h1>A <span>gift</span></h1></header>
@@ -323,7 +323,7 @@ async function hugAfter(f, ext){
   const u = await api("/upload-url", {ext}); if (u.error) return fail(u.error);
   try { await putVideo(u.url, f, (r) => $("#pg").style.width = (60*r)+"%"); } catch (e) { return fail(e.message); }
   $("#st").textContent = `${h.momo} is feeling it…`; $("#pg").style.width = "80%";
-  const r = await api("/hug", {tree: h.id, path: u.path, lat: loc.lat, lng: loc.lng});
+  const r = await api("/hug", {tree: h.id, path: u.path, lat: loc.lat, lng: loc.lng, acc: loc.acc});
   if (r.error) return fail(r.error);
   if (!r.ok) { $("#app").innerHTML = `<header><h1>Tree <span>Hug</span></h1></header><div class="card"><h2>Almost</h2><p style="margin:8px 0">${esc(r.note)}</p><button class="btn sun" id="again">🎥 Try the hug again</button><button class="btn alt" onclick="location.reload()">Later</button></div>`; $("#again").onclick = () => startHug(h.id, h.momo); return; }
   $("#app").innerHTML = `<header><h1>Tree <span>Hug</span></h1></header>

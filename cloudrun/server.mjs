@@ -138,6 +138,10 @@ async function assignFamily(treeId) {
   await sql`update tm_trees set family=${fam} where id in ${sql(ids)}`;
   return familyOf(t.id);
 }
+// "At the tree": phone GPS drifts 20-60 m between downtown buildings, and the tree's own pin came from someone's phone too.
+// Allow 50 m plus the phone's reported accuracy (capped), so a player standing at the trunk isn't turned away.
+const NEAR_BASE = 50, NEAR_ACC_MAX = 75;
+const nearTree = (tlat, tlng, lat, lng, acc) => tlat == null || meters({ lat, lng }, { lat: tlat, lng: tlng }) <= NEAR_BASE + Math.min(Math.max(Number(acc) || 0, 0), NEAR_ACC_MAX);
 const isUuid = (s) => /^[0-9a-f-]{36}$/i.test(String(s ?? ""));
 
 async function route(req, url, path, player, body) {
@@ -197,6 +201,11 @@ async function route(req, url, path, player, body) {
     let treeId;
     if (treeRow) {
       treeId = treeRow.id;
+      const acc = Number(body.acc);
+      if (hasLoc && acc > 0 && acc <= 35) {
+        const w = Math.min(treeRow.visits, 9);   // later fixes still count, the first one doesn't own the pin forever
+        await sql`update tm_trees set lat=${(treeRow.lat * w + lat) / (w + 1)}, lng=${(treeRow.lng * w + lng) / (w + 1)}, accuracy_m=least(coalesce(accuracy_m, ${acc}), ${acc}) where id=${treeRow.id}`;
+      }
       await sql`update tm_trees set visits=visits+1, last_seen=now(), health=${J(a.tree)}, momo=coalesce(momo, ${J(momo)}), place=coalesce(${place ? J(place) : null}, place) where id=${treeId}`;
     } else {
       [{ id: treeId }] = await sql`insert into tm_trees (lat,lng,accuracy_m,species,species_confidence,health,momo,place) values (${hasLoc ? lat : null},${hasLoc ? lng : null},${Number(body.acc) || null},${a.tree?.species ?? null},${Number(a.tree?.confidence) || null},${J(a.tree)},${J(momo)},${J(place)}) returning id`;
@@ -246,7 +255,7 @@ async function route(req, url, path, player, body) {
     if (!vp.startsWith(player.slice(0, 16) + "/") || vp === q.before_path) return [403, { error: "not your video" }];
     const lat = Number(body.lat), lng = Number(body.lng);
     if (body.lat == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return [400, { error: "Turn on location so the Momo knows you're at its tree." }];
-    if (q.tlat != null && meters({ lat, lng }, { lat: q.tlat, lng: q.tlng }) > 40) return [403, { error: "You need to be at the tree to film the after clip." }];
+    if (!nearTree(q.tlat, q.tlng, lat, lng, body.acc)) return [403, { error: "You need to be at the tree to film the after clip." }];
     let before, after;
     try { [[before], [after]] = await Promise.all([bucket.file(q.before_path).download(), bucket.file(vp).download()]); } catch { return [404, { error: "video missing" }]; }
     const [ua, ub] = await Promise.all([toGemini(before, mimeOf(q.before_path)), toGemini(after, mimeOf(vp))]);
@@ -273,7 +282,7 @@ async function route(req, url, path, player, body) {
     if (!t) { drop(); return [404, { error: "no such tree" }]; }
     const lat = Number(body.lat), lng = Number(body.lng);
     if (body.lat == null || !Number.isFinite(lat) || !Number.isFinite(lng)) { drop(); return [400, { error: "Turn on location so the Momo knows you're at its tree." }]; }
-    if (t.lat != null && meters({ lat, lng }, { lat: t.lat, lng: t.lng }) > 40) { drop(); return [403, { error: "You need to be at the tree to hug it." }]; }
+    if (!nearTree(t.lat, t.lng, lat, lng, body.acc)) { drop(); return [403, { error: "You need to be at the tree to hug it." }]; }
     const [{ recent }] = await sql`select count(*)::int recent from tm_hugs where player=${player} and tree=${t.id} and at > now() - interval '20 hours'`;
     if (recent) { drop(); return [429, { error: `${t.momo_name} already got your hug today. Come back tomorrow, or go hug another tree.` }]; }
     let bytes;
@@ -345,7 +354,7 @@ async function route(req, url, path, player, body) {
     const [g] = await sql`select g.*, t.lat tlat, t.lng tlng, t.momo->>'name' momo_name from tm_gifts g join tm_trees t on t.id=g.tree where g.id=${id}`;
     if (!g || g.status !== "open") return [404, { error: "That gift already found its person." }];
     const lat = Number(url.searchParams.get("lat")), lng = Number(url.searchParams.get("lng"));
-    const near = Number.isFinite(lat) && Number.isFinite(lng) && (g.tlat == null || meters({ lat, lng }, { lat: g.tlat, lng: g.tlng }) <= 40);
+    const near = Number.isFinite(lat) && Number.isFinite(lng) && nearTree(g.tlat, g.tlng, lat, lng, url.searchParams.get("acc"));
     return [200, { ...giftPublic(g, near), near, momo: g.momo_name, tree: g.tree }];
   }
   if (path === "/claim" && req.method === "POST") {
@@ -362,7 +371,7 @@ async function route(req, url, path, player, body) {
     if (g.giver_user === u.id) { drop(); return [403, { error: "That's your own gift. Leave it for someone else to find." }]; }
     const lat = Number(body.lat), lng = Number(body.lng);
     if (body.lat == null || !Number.isFinite(lat) || !Number.isFinite(lng)) { drop(); return [400, { error: "Turn on location so the Momo knows you're at its tree." }]; }
-    if (g.tlat != null && meters({ lat, lng }, { lat: g.tlat, lng: g.tlng }) > 40) { drop(); return [403, { error: "Read it at the tree. You need to be there." }]; }
+    if (!nearTree(g.tlat, g.tlng, lat, lng, body.acc)) { drop(); return [403, { error: "Read it at the tree. You need to be there." }]; }
     let bytes;
     try { [bytes] = await bucket.file(vp).download(); } catch { return [404, { error: "video missing" }]; }
     const uri = await toGemini(bytes, mimeOf(vp));
