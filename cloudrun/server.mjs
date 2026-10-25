@@ -129,16 +129,18 @@ async function route(req, url, path, player, body) {
     const ext = vp.split(".").pop();
     const mime = ext === "mov" ? "video/quicktime" : ext === "webm" ? "video/webm" : ext === "3gp" ? "video/3gpp" : "video/mp4";
     const lat = Number(body.lat), lng = Number(body.lng), hasLoc = Number.isFinite(lat) && Number.isFinite(lng) && !(body.lat == null);
-    const [uri, near, place, weather] = await Promise.all([
+    const [uri, near, place, weather, hood] = await Promise.all([
       toGemini(bytes, mime),
       hasLoc ? sql`select id,lat,lng,visits,momo,species,health from tm_trees where lat between ${lat - 0.0003} and ${lat + 0.0003} and lng between ${lng - 0.0004} and ${lng + 0.0004}` : [],
-      hasLoc ? placeName(lat, lng) : null, hasLoc ? weatherAt(lat, lng) : null]);
+      hasLoc ? placeName(lat, lng) : null, hasLoc ? weatherAt(lat, lng) : null,
+      hasLoc ? sql`select momo->>'name' n, momo->>'first_name' f from tm_trees where momo is not null and lat between ${lat - 0.018} and ${lat + 0.018} and lng between ${lng - 0.023} and ${lng + 0.023}` : []]);
     const cands = [...near].map((t) => ({ ...t, d: meters({ lat, lng }, t) })).filter((t) => t.d < 15).sort((x, y) => x.d - y.d).slice(0, 6);
     const where = place ? [place.neighborhood, place.city, place.state].filter(Boolean).join(", ") : "";
     const known = cands.map((t, i) => `T${i + 1}: ${t.species ?? "unknown species"}, ~${Math.round(t.d)} m away, height ~${t.health?.height_m ?? "?"} m${t.momo ? `, resident Momo ${t.momo.name}` : ""}`);
     const ctx = [`The player is at ${hasLoc ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : "an unknown location"}${where ? ` (${where})` : ""}.`,
       weather ? `Weather right now: ${weather.sky}, ${weather.temp_f}°F (feels ${weather.feels_f}°F), wind ${weather.wind_mph} mph, humidity ${weather.humidity}%, ${weather.day ? "daytime" : "night"}, local time ${weather.local_time}.` : "",
       known.length ? `Trees already known within 15 m of the player (GPS is approximate, and different trees often stand close together):\n${known.join("\n")}\nSet tree.match to the key (like "T1") ONLY if the tree in this clip is that same individual tree: same species, matching size and look. A different species is never a match. Otherwise null. If you match one that has a resident Momo, don't design a new Momo: return momo.name exactly as the resident's, leave momo.svg empty and give momo.mood.` : "No trees are known near here yet: this tree has no Momo, so you are designing its first and only resident.",
+      hood.length ? `Momos already living in this area: ${[...hood].map((h) => h.n).join(", ")}. A new Momo must get a first name none of them use: people remember places by these names, so reach for a different local thread (a street, pier, landmark, hill, creek, a piece of the area's history, its people, languages, food or music).` : "",
       body.note ? "They said: " + clip(body.note, 200) : ""].filter(Boolean).join("\n");
     const a = await argon([{ file_data: { mime_type: mime, file_uri: uri } }, { text: ctx }], WATCH, 9000, "low");
     if (a?.tree?.is_tree === false) return [422, { error: "No tree in that clip. Film a real tree: trunk, branches and leaves, about 10 seconds." }];
@@ -149,6 +151,16 @@ async function route(req, url, path, player, body) {
     const treeRow = cand && sameSpecies(cand.species, a?.tree?.species) ? cand : null;
     const resident = treeRow?.momo ?? null;
     const fresh = sanitize(a?.momo?.svg);
+    if (!resident && a?.momo?.name) {
+      const taken = new Set([...hood].flatMap((h) => [h.n, h.f]).filter(Boolean).map((x) => x.toLowerCase()));
+      const [{ dup }] = await sql`select count(*)::int dup from tm_trees where lower(momo->>'name')=${String(a.momo.name).toLowerCase()}`;
+      if (dup || taken.has(String(a.momo.first_name ?? "").toLowerCase())) {
+        const line = String(a.momo.name).split(/\s+/).slice(1).join(" ") || a.momo.name;
+        const nn = await argon([{ text: JSON.stringify({ place: where || "unknown", tree: a.tree?.species, momo_line_name: line, taken_names: [...taken], current: a.momo.name }) }],
+          `Give this Momo a new first name that belongs to the place, so a player remembers where they found it. Draw on a local street, pier, landmark, hill, creek, history, people, language, food or music a local would recognize. Respectful, never a stereotype. It must differ from every taken name. Keep the line name. Reply JSON only: {"name": "First LineName", "first_name": "...", "place_note": "one short line on what the first name refers to"}`, 300, "low").catch(() => null);
+        if (nn?.first_name && !taken.has(String(nn.first_name).toLowerCase())) a.momo = { ...a.momo, name: clip(nn.name, 60) || `${nn.first_name} ${line}`, first_name: clip(nn.first_name, 30), place_note: clip(nn.place_note, 200) || a.momo.place_note };
+      }
+    }
     const momo = resident ? { ...resident, mood: clip(a?.momo?.mood, 80) || null } : { ...a.momo, svg: fresh ?? `<circle cx="100" cy="110" r="60" fill="#8fbf6a" stroke="#1d1a17" stroke-width="3"/><circle cx="80" cy="100" r="12" fill="#fff" stroke="#1d1a17" stroke-width="3"/><circle cx="120" cy="100" r="12" fill="#fff" stroke="#1d1a17" stroke-width="3"/><circle cx="82" cy="102" r="5" fill="#1d1a17"/><circle cx="122" cy="102" r="5" fill="#1d1a17"/>` };
     const hide = a.hideout ?? {};
     const placement = { t: Math.max(0, Number(hide.t) || 0), x: Math.min(0.95, Math.max(0.05, Number(hide.x) || 0.5)), y: Math.min(0.95, Math.max(0.05, Number(hide.y) || 0.5)), size: Math.min(0.4, Math.max(0.06, Number(hide.size) || 0.18)), peek: hide.peek ?? "none", why: clip(hide.why, 300), flip: false };
