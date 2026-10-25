@@ -37,3 +37,6 @@ create index if not exists tm_gifts_claimed_by on tm_gifts (claimed_by);
 create index if not exists tm_gifts_giver on tm_gifts (giver);
 alter table tm_chronicle drop constraint if exists tm_chronicle_kind_check;
 alter table tm_chronicle add constraint tm_chronicle_kind_check check (kind in ('moment','memory','steward','cleanup','hug','gift'));
+create table if not exists tm_families (id uuid primary key default gen_random_uuid(), name text not null, note text, species text, lat double precision, lng double precision, created_at timestamptz not null default now());
+alter table tm_trees add column if not exists family uuid references tm_families(id) on delete set null;
+create index if not exists tm_trees_family on tm_trees (family);

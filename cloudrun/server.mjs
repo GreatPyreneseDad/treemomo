@@ -108,6 +108,36 @@ function coverage(poem, said) {
   for (let i = 1; i <= A.length; i++) { const cur = [0]; for (let j = 1; j <= B.length; j++) cur[j] = A[i - 1] === B[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]); prev = cur; }
   return prev[B.length] / A.length;
 }
+// Families: Momos of the same species living in the same area (within 1.5 km) share a family tag.
+const normSp = (x) => String(x ?? "").toLowerCase().replace(/crepe/g, "crape").replace(/grey/g, "gray").replace(/\(.*?\)|'.*?'/g, "").replace(/[^a-z ]/g, " ").trim().split(/\s+/).filter((w) => w.length > 2 && !["tree", "common"].includes(w));
+const sameSp = (x, y) => { const A = normSp(x), B = normSp(y); return A.length > 0 && B.length > 0 && A[A.length - 1] === B[B.length - 1] && (A.length < 2 || B.length < 2 || A.join(" ") === B.join(" ") || A.slice(-2).join(" ") === B.slice(-2).join(" ")); };
+const FAMILY_M = 1500;
+async function familyOf(treeId) {
+  const [t] = await sql`select family from tm_trees where id=${treeId}`;
+  if (!t?.family) return null;
+  const [f] = await sql`select id,name,note from tm_families where id=${t.family}`;
+  const members = await sql`select id, momo->>'name' name from tm_trees where family=${t.family} order by first_seen`;
+  return f ? { ...f, members: members.map((m) => ({ id: m.id, name: m.name })) } : null;
+}
+async function assignFamily(treeId) {
+  const [t] = await sql`select id,lat,lng,species,family,place, momo->>'name' name from tm_trees where id=${treeId}`;
+  if (!t || t.lat == null || !t.species || t.family) return familyOf(treeId);
+  const near = await sql`select id,lat,lng,species,family,place, momo->>'name' name from tm_trees where id<>${t.id} and momo is not null
+    and lat between ${t.lat - 0.0136} and ${t.lat + 0.0136} and lng between ${t.lng - 0.0172} and ${t.lng + 0.0172}`;
+  const sibs = [...near].filter((x) => sameSp(x.species, t.species) && meters(t, x) <= FAMILY_M);
+  if (!sibs.length) return null;
+  let fam = sibs.find((x) => x.family)?.family;
+  if (!fam) {
+    const where = [t.place?.neighborhood, t.place?.city].filter(Boolean).join(", ");
+    const n = await argon([{ text: JSON.stringify({ place: where || "unknown", species: t.species, members: [t.name, ...sibs.map((x) => x.name)] }) }],
+      `These Momos are the same kind of tree living in the same area, so they are one family. Give the family a short tag (2 to 4 words) rooted in the place, the way people remember a neighborhood's trees: like "the Ferry Planes" or "the Waterfront Palms". Respectful, never a stereotype. Reply JSON only: {"name": "...", "note": "one short line about this family and its place"}`, 300, "low").catch(() => null);
+    const name = clip(n?.name, 50) || `the ${where.split(",")[0] || "Neighborhood"} ${String(t.species).split(/\s+/).pop()}s`;
+    [{ id: fam }] = await sql`insert into tm_families (name,note,species,lat,lng) values (${name},${clip(n?.note, 200) || null},${t.species},${t.lat},${t.lng}) returning id`;
+  }
+  const ids = [t.id, ...sibs.filter((x) => !x.family).map((x) => x.id)];
+  await sql`update tm_trees set family=${fam} where id in ${sql(ids)}`;
+  return familyOf(t.id);
+}
 const isUuid = (s) => /^[0-9a-f-]{36}$/i.test(String(s ?? ""));
 
 async function route(req, url, path, player, body) {
@@ -185,8 +215,9 @@ async function route(req, url, path, player, body) {
       await sql`insert into tm_quests (tree,ask,litter,before_sighting,before_path,created_by) values (${treeId},${ask},${J(a.litter)},${sid},${vp},${player}) on conflict do nothing`;
     const quest = await openQuest(treeId);
     const gift = giftPublic(await openGift(treeId), true);
+    const family = await (treeRow ? familyOf(treeId) : assignFamily(treeId)).catch((e) => { console.error("family", e); return null; });
     const [tr] = await sql`select visits from tm_trees where id=${treeId}`;
-    return [200, { gift, quest, report: a?.litter?.unsafe ? ask || null : null, sighting: sid, tree: { id: treeId, visits: tr?.visits ?? 1, ...a.tree }, momo, placement, sponsor, place, weather, moment: a.moment ?? null, returning: !!resident, chronicle: await chronicle(treeId) }];
+    return [200, { family, gift, quest, report: a?.litter?.unsafe ? ask || null : null, sighting: sid, tree: { id: treeId, visits: tr?.visits ?? 1, ...a.tree }, momo, placement, sponsor, place, weather, moment: a.moment ?? null, returning: !!resident, chronicle: await chronicle(treeId) }];
   }
   if (path === "/fit" && req.method === "POST") {
     if (!isUuid(body.sighting)) return [403, { error: "not yours" }];
@@ -364,7 +395,8 @@ async function route(req, url, path, player, body) {
     const rows = await sql`select t.id,t.lat,t.lng,t.species,t.visits,t.last_seen,t.place,t.momo->>'name' name,t.momo->>'rarity' rarity,t.momo->>'line' line,t.momo->>'svg' svg,t.momo->>'place_note' place_note,t.health->>'health_label' health,
       (select text from tm_chronicle c where c.tree=t.id and c.kind='moment' order by at desc limit 1) moment,
       (select json_build_object('id',q.id,'ask',q.ask) from tm_quests q where q.tree=t.id and q.status='open' limit 1) quest,
-      (select json_build_object('id',g.id,'title',g.title,'from',g.from_name) from tm_gifts g where g.tree=t.id and g.status='open' limit 1) gift
+      (select json_build_object('id',g.id,'title',g.title,'from',g.from_name) from tm_gifts g where g.tree=t.id and g.status='open' limit 1) gift,
+      (select json_build_object('id',f.id,'name',f.name,'size',(select count(*) from tm_trees x where x.family=f.id)) from tm_families f where f.id=t.family) family
       from tm_trees t where t.lat is not null and t.momo is not null order by t.last_seen desc limit 500`;
     return [200, { trees: rows }];
   }
@@ -387,9 +419,20 @@ async function route(req, url, path, player, body) {
     const [d] = await sql`update tm_sightings set status=${status} where id=${body.sighting} and player=${player} returning id,status`;
     return d ? [200, d] : [403, { error: "not yours" }];
   }
+  if (path === "/family") {
+    const id = url.searchParams.get("tree");
+    return [200, { family: isUuid(id) ? await familyOf(id) : null }];
+  }
+  if (path === "/admin/families" && req.method === "POST") {
+    // one-off backfill: group existing trees into families (oldest first)
+    if (!process.env.DB_PASSWORD || req.headers["x-tm-admin"] !== process.env.DB_PASSWORD) return [403, { error: "no" }];
+    const all = await sql`select id from tm_trees where momo is not null and family is null order by first_seen`;
+    for (const t of all) await assignFamily(t.id);
+    return [200, { families: await sql`select f.name, f.species, (select json_agg(momo->>'name') from tm_trees x where x.family=f.id) members from tm_families f` }];
+  }
   if (path === "/journal") {
-    const rows = await sql`select id,momo,analysis,status,created_at,tree,sponsor from tm_sightings where player=${player} and status<>'new' order by created_at desc limit 50`;
-    return [200, { entries: rows.map((e) => ({ id: e.id, status: e.status, at: e.created_at, tree: e.tree, momo: { name: e.momo?.name, rarity: e.momo?.rarity, line: e.momo?.line, svg: e.momo?.svg }, species: e.analysis?.tree?.species, health: e.analysis?.tree?.health_label, sponsor: e.sponsor })) }];
+    const rows = await sql`select s.id,s.momo,s.analysis,s.status,s.created_at,s.tree,s.sponsor,f.name family from tm_sightings s left join tm_trees t on t.id=s.tree left join tm_families f on f.id=t.family where s.player=${player} and s.status<>'new' order by s.created_at desc limit 50`;
+    return [200, { entries: rows.map((e) => ({ id: e.id, status: e.status, at: e.created_at, tree: e.tree, momo: { name: e.momo?.name, rarity: e.momo?.rarity, line: e.momo?.line, svg: e.momo?.svg }, species: e.analysis?.tree?.species, health: e.analysis?.tree?.health_label, sponsor: e.sponsor, family: e.family })) }];
   }
   if (path === "/sponsor" && req.method === "POST") {
     if (player.length < 16) return [401, { error: "no player" }];
