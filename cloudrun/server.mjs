@@ -384,7 +384,10 @@ async function route(req, url, path, player, body) {
     return [200, { got, left }];
   }
   if (path === "/stats") {
-    const [r] = await sql`select (select count(*)::int from tm_users) users, (select count(*)::int from tm_trees) trees, (select count(*)::int from tm_sightings) sightings,
+    // players: everyone who has found a Momo, signed in or not (a signed-in person counts once across phones)
+    const [r] = await sql`select (select count(distinct coalesce(l.user_id::text, s.player))::int from tm_sightings s left join tm_links l on l.player=s.player where s.player not like 'e2e%') players,
+      (select count(distinct coalesce(place->>'city', ''))::int from tm_trees where place->>'city' is not null) cities,
+      (select count(*)::int from tm_users) users, (select count(*)::int from tm_trees) trees, (select count(*)::int from tm_sightings) sightings,
       (select count(*)::int from tm_quests where status='done') cleanups, (select count(*)::int from tm_hugs) hugs,
       (select count(*)::int from tm_gifts) gifts, (select count(*)::int from tm_gifts where status='claimed') gifts_found`;
     return [200, r];
