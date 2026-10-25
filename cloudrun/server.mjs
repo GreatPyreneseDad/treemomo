@@ -140,7 +140,7 @@ async function assignFamily(treeId) {
 }
 // "At the tree": phone GPS drifts 20-60 m between downtown buildings, and the tree's own pin came from someone's phone too.
 // Allow 50 m plus the phone's reported accuracy (capped), so a player standing at the trunk isn't turned away.
-const NEAR_BASE = 50, NEAR_ACC_MAX = 75;
+const NEAR_BASE = 100, NEAR_ACC_MAX = 100;   // Argon also has to see the right tree in the clip, so GPS only needs to say "this block"
 const nearTree = (tlat, tlng, lat, lng, acc) => tlat == null || meters({ lat, lng }, { lat: tlat, lng: tlng }) <= NEAR_BASE + Math.min(Math.max(Number(acc) || 0, 0), NEAR_ACC_MAX);
 const isUuid = (s) => /^[0-9a-f-]{36}$/i.test(String(s ?? ""));
 
@@ -165,15 +165,15 @@ async function route(req, url, path, player, body) {
     const lat = Number(body.lat), lng = Number(body.lng), hasLoc = Number.isFinite(lat) && Number.isFinite(lng) && !(body.lat == null);
     const [uri, near, place, weather, hood] = await Promise.all([
       toGemini(bytes, mime),
-      hasLoc ? sql`select id,lat,lng,visits,momo,species,health from tm_trees where lat between ${lat - 0.0003} and ${lat + 0.0003} and lng between ${lng - 0.0004} and ${lng + 0.0004}` : [],
+      hasLoc ? sql`select id,lat,lng,visits,momo,species,health from tm_trees where lat between ${lat - 0.0008} and ${lat + 0.0008} and lng between ${lng - 0.001} and ${lng + 0.001}` : [],
       hasLoc ? placeName(lat, lng) : null, hasLoc ? weatherAt(lat, lng) : null,
       hasLoc ? sql`select momo->>'name' n, momo->>'first_name' f from tm_trees where momo is not null and lat between ${lat - 0.018} and ${lat + 0.018} and lng between ${lng - 0.023} and ${lng + 0.023}` : []]);
-    const cands = [...near].map((t) => ({ ...t, d: meters({ lat, lng }, t) })).filter((t) => t.d < 15).sort((x, y) => x.d - y.d).slice(0, 6);
+    const cands = [...near].map((t) => ({ ...t, d: meters({ lat, lng }, t) })).filter((t) => t.d < 25 + Math.min(Math.max(Number(body.acc) || 0, 0), 25)).sort((x, y) => x.d - y.d).slice(0, 6);
     const where = place ? [place.neighborhood, place.city, place.state].filter(Boolean).join(", ") : "";
     const known = cands.map((t, i) => `T${i + 1}: ${t.species ?? "unknown species"}, ~${Math.round(t.d)} m away, height ~${t.health?.height_m ?? "?"} m${t.momo ? `, resident Momo ${t.momo.name}` : ""}`);
     const ctx = [`The player is at ${hasLoc ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : "an unknown location"}${where ? ` (${where})` : ""}.`,
       weather ? `Weather right now: ${weather.sky}, ${weather.temp_f}°F (feels ${weather.feels_f}°F), wind ${weather.wind_mph} mph, humidity ${weather.humidity}%, ${weather.day ? "daytime" : "night"}, local time ${weather.local_time}.` : "",
-      known.length ? `Trees already known within 15 m of the player (GPS is approximate, and different trees often stand close together):\n${known.join("\n")}\nSet tree.match to the key (like "T1") ONLY if the tree in this clip is that same individual tree: same species, matching size and look. A different species is never a match. Otherwise null. If you match one that has a resident Momo, don't design a new Momo: return momo.name exactly as the resident's, leave momo.svg empty and give momo.mood.` : "No trees are known near here yet: this tree has no Momo, so you are designing its first and only resident.",
+      known.length ? `Trees already known near the player (GPS is approximate, and different trees often stand close together):\n${known.join("\n")}\nSet tree.match to the key (like "T1") ONLY if the tree in this clip is that same individual tree: same species, matching size and look. A different species is never a match. Otherwise null. If you match one that has a resident Momo, don't design a new Momo: return momo.name exactly as the resident's, leave momo.svg empty and give momo.mood.` : "No trees are known near here yet: this tree has no Momo, so you are designing its first and only resident.",
       hood.length ? `Momos already living in this area: ${[...hood].map((h) => h.n).join(", ")}. A new Momo must get a first name none of them use: people remember places by these names, so reach for a different local thread (a street, pier, landmark, hill, creek, a piece of the area's history, its people, languages, food or music).` : "",
       body.note ? "They said: " + clip(body.note, 200) : ""].filter(Boolean).join("\n");
     const a = await argon([{ file_data: { mime_type: mime, file_uri: uri } }, { text: ctx }], WATCH, 9000, "low");
