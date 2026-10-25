@@ -1,7 +1,7 @@
 .vercel
 .secrets
 node_modules
-supabase/.temp
+supabase
 cloudrun/import.sql
 cloudrun/reset-gift.sql
 .DS_Store

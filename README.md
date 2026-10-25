@@ -36,7 +36,6 @@ web/                  the app: one HTML file, plus privacy and terms
 cloudrun/server.mjs   the API (Node 22, postgres, @google-cloud/storage)
 cloudrun/prompts.mjs  the Argon prompts
 cloudrun/schema.sql   the database
-supabase/             the first prototype API (replaced by Cloud Run)
 ```
 
 ## Run your own
