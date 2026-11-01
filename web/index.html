@@ -131,6 +131,16 @@ const mountSave = () => document.querySelectorAll("#saveme .gbtn").forEach(el =>
 function toast(t, ms=2800){ const el=$("#toast"); el.textContent=t; el.style.display="block"; clearTimeout(toast.h); toast.h=setTimeout(()=>el.style.display="none", ms); }
 async function api(path, body){ const r = await fetch(API+path, {method: body?"POST":"GET", headers:{"content-type":"application/json","x-tm-player":player}, body: body?JSON.stringify(body):undefined}); return r.json().catch(()=>({error:"network"})); }
 const svgOf = (inner) => `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+async function pinMomo(treeId, name){
+  toast("Finding you…");
+  const l = await getLoc();
+  if (!l) return toast("Turn on location for treemomo.com, then try again at the tree.");
+  loc = l;
+  const r = await api("/pin", {tree: treeId, lat: l.lat, lng: l.lng, acc: l.acc});
+  if (r.error) return toast(r.error);
+  toast(r.already ? `${name} is already on the map` : `${name} is on the map now`);
+  journal();
+}
 function getLoc(){ return new Promise(res => { if (!navigator.geolocation) return res(null); navigator.geolocation.getCurrentPosition(p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}), () => res(null), {enableHighAccuracy:true, timeout:10000, maximumAge:5000}); }); }
 
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on", x===b)); tab==="journal" ? journal() : tab==="map" ? mapView() : home(); });
@@ -354,6 +364,7 @@ async function process(f, ext){
   const lines = ["Argon is watching your tree…", "Reading the bark and the canopy…", "Checking the branches for hideouts…", "Something moved in the leaves…", "A Momo is waking up…"];
   let i = 0; $("#st").textContent = lines[0]; const tick = setInterval(() => { i = Math.min(lines.length-1, i+1); $("#st").textContent = lines[i]; $("#pg").style.width = Math.min(97, 60 + i*8) + "%"; }, 7000);
   $("#sub").textContent = "About 30 to 60 seconds";
+  if (!loc) toast("Location is off, so this Momo won't show on the map. You can pin it later from your Journal.");
   R = await api("/analyze", {path:u.path, lat:loc?.lat, lng:loc?.lng, acc:loc?.acc});
   clearInterval(tick);
   if (R.error) return fail(R.error);
@@ -456,7 +467,7 @@ async function journal(){
   $("#app").innerHTML = `<header><h1>Journal</h1></header><div class="card">Loading…</div>`;
   const [j, me, gf] = await Promise.all([api("/journal"), refreshMe(), api("/gifts")]);
   const gifts = (gf.got || []).length || (gf.left || []).length ? `<div class="card"><h3>🎁 Gifts</h3>${(gf.got || []).map(g => `<div class="gline"><b>${esc(g.title)}</b> <span class="muted">from ${esc(g.from_name || "someone")} via ${esc(g.momo)}</span><div class="code sm">${esc(g.code)}</div>${g.how ? `<div class="muted">${esc(g.how)}</div>` : ""}</div>`).join("")}${(gf.left || []).map(g => `<div class="gline"><span class="muted">You left</span> <b>${esc(g.title)}</b> <span class="muted">in ${esc(g.momo)} · ${g.status === "claimed" ? "✨ found its person" : "waiting"}</span></div>`).join("")}</div>` : "";
-  $("#app").innerHTML = `<header><h1>Journal</h1><span class="muted">${(j.entries||[]).length} Momos</span></header>` + (me.user ? `<div class="card acct">${me.user.picture ? `<img src="${esc(me.user.picture)}" alt="" referrerpolicy="no-referrer">` : ""}<div><b>${esc(me.user.name || "")}</b><div class="muted">${esc(me.user.email)}</div></div><a href="#" id="so">Sign out</a></div>` : saveCard("Sign in with Google so your Momos, cleanups and hugs stay yours on any phone. You can keep playing without it.")) + gifts + badgeCard(me) + ((j.entries||[]).length ? `<div class="journal">${j.entries.map(e => `<div class="jent" onclick='showChron(${JSON.stringify(e.tree)}, ${JSON.stringify(e.momo.name || "").replace(/'/g,"&#39;")})'>${svgOf(e.momo.svg)}<div class="f" style="font-weight:700">${esc(e.momo.name)}</div><span class="rar ${esc(e.momo.rarity)}" style="font-size:10px">${esc(e.momo.rarity)}</span><div class="muted">${esc(e.species)} · ${esc(e.health)}</div>${e.family ? `<div class="muted">👪 ${esc(e.family)}</div>` : ""}<div class="muted">${e.status === "captured" ? "🫙 caught" : e.status === "escaped" ? "🍃 escaped" : "📔 documented"}</div></div>`).join("")}</div>` : `<div class="card"><p>No Momos yet. Go film a tree.</p></div>`);
+  $("#app").innerHTML = `<header><h1>Journal</h1><span class="muted">${(j.entries||[]).length} Momos</span></header>` + (me.user ? `<div class="card acct">${me.user.picture ? `<img src="${esc(me.user.picture)}" alt="" referrerpolicy="no-referrer">` : ""}<div><b>${esc(me.user.name || "")}</b><div class="muted">${esc(me.user.email)}</div></div><a href="#" id="so">Sign out</a></div>` : saveCard("Sign in with Google so your Momos, cleanups and hugs stay yours on any phone. You can keep playing without it.")) + gifts + badgeCard(me) + ((j.entries||[]).length ? `<div class="journal">${j.entries.map(e => `<div class="jent" onclick='showChron(${JSON.stringify(e.tree)}, ${JSON.stringify(e.momo.name || "").replace(/'/g,"&#39;")})'>${svgOf(e.momo.svg)}<div class="f" style="font-weight:700">${esc(e.momo.name)}</div><span class="rar ${esc(e.momo.rarity)}" style="font-size:10px">${esc(e.momo.rarity)}</span><div class="muted">${esc(e.species)} · ${esc(e.health)}</div>${e.family ? `<div class="muted">👪 ${esc(e.family)}</div>` : ""}<div class="muted">${e.status === "captured" ? "🫙 caught" : e.status === "escaped" ? "🍃 escaped" : "📔 documented"}</div>${e.located === false ? `<button class="btn sun" style="padding:6px 8px;font-size:12px;margin-top:6px" onclick='event.stopPropagation(); pinMomo(${JSON.stringify(e.tree)}, ${JSON.stringify(e.momo.name || "").replace(/'/g,"&#39;")})'>📍 Not on the map: pin it at the tree</button>` : ""}</div>`).join("")}</div>` : `<div class="card"><p>No Momos yet. Go film a tree.</p></div>`);
   mountSave(); if ($("#so")) $("#so").onclick = (e) => { e.preventDefault(); signOut(); };
 }
 home(); refreshMe();

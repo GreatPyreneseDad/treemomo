@@ -444,9 +444,24 @@ async function route(req, url, path, player, body) {
     for (const t of all) await assignFamily(t.id);
     return [200, { families: await sql`select f.name, f.species, (select json_agg(momo->>'name') from tm_trees x where x.family=f.id) members from tm_families f` }];
   }
+  if (path === "/pin" && req.method === "POST") {
+    // A Momo found with location off has no spot on the map. Its finder can pin it later, standing at the tree.
+    if (!isUuid(body.tree)) return [400, { error: "which tree?" }];
+    const lat = Number(body.lat), lng = Number(body.lng), acc = Number(body.acc) || null;
+    if (body.lat == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return [400, { error: "Turn on location so the Momo knows where its tree is." }];
+    if (acc != null && acc > 100) return [400, { error: "GPS is too fuzzy right now. Step into the open and try again." }];
+    const [mine] = await sql`select 1 from tm_sightings where tree=${body.tree} and player=${player} and status<>'new' limit 1`;
+    if (!mine) return [403, { error: "Only someone who found this Momo can pin it." }];
+    const [t] = await sql`select id,lat from tm_trees where id=${body.tree}`;
+    if (!t) return [404, { error: "no such tree" }];
+    if (t.lat != null) return [200, { pinned: true, already: true }];
+    const place = await placeName(lat, lng).catch(() => null);
+    await sql`update tm_trees set lat=${lat}, lng=${lng}, accuracy_m=${acc}, place=coalesce(place, ${J(place)}) where id=${t.id} and lat is null`;
+    return [200, { pinned: true }];
+  }
   if (path === "/journal") {
-    const rows = await sql`select s.id,s.momo,s.analysis,s.status,s.created_at,s.tree,s.sponsor,f.name family from tm_sightings s left join tm_trees t on t.id=s.tree left join tm_families f on f.id=t.family where s.player=${player} and s.status<>'new' order by s.created_at desc limit 50`;
-    return [200, { entries: rows.map((e) => ({ id: e.id, status: e.status, at: e.created_at, tree: e.tree, momo: { name: e.momo?.name, rarity: e.momo?.rarity, line: e.momo?.line, svg: e.momo?.svg }, species: e.analysis?.tree?.species, health: e.analysis?.tree?.health_label, sponsor: e.sponsor, family: e.family })) }];
+    const rows = await sql`select s.id,s.momo,s.analysis,s.status,s.created_at,s.tree,s.sponsor,f.name family,(t.lat is not null) located from tm_sightings s left join tm_trees t on t.id=s.tree left join tm_families f on f.id=t.family where s.player=${player} and s.status<>'new' order by s.created_at desc limit 50`;
+    return [200, { entries: rows.map((e) => ({ id: e.id, status: e.status, at: e.created_at, tree: e.tree, momo: { name: e.momo?.name, rarity: e.momo?.rarity, line: e.momo?.line, svg: e.momo?.svg }, species: e.analysis?.tree?.species, health: e.analysis?.tree?.health_label, sponsor: e.sponsor, family: e.family, located: e.located })) }];
   }
   if (path === "/sponsor" && req.method === "POST") {
     if (player.length < 16) return [401, { error: "no player" }];
